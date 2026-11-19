@@ -69,7 +69,8 @@
         last = t;
         var p = t.split('|');
         if (p[1] === 'share') {
-          res = { score: +p[3], medal: +p[4], hits: +p[5], heads: +p[6], combo: +p[7], eaten: +p[8], done: p[9] === '1', best: p[10] === '1' };
+          res = { score: +p[3], medal: +p[4], hits: +p[5], heads: +p[6], combo: +p[7], eaten: +p[8], done: p[9] === '1', best: p[10] === '1',
+            level: +p[11] || 1, stage: p[12] || 'THE PROM', doneText: p[13] || 'PROM SECURED' };
           place(); btn.style.display = 'block';
         } else { res = null; btn.style.display = 'none'; }
         document.title = 'Seagull Strike'; last = document.title;
@@ -101,11 +102,11 @@
             try { g.drawImage(icon, 390, 70, 300, 300); } catch (e) {}
             g.restore();
             txt('SEAGULL STRIKE', 540, 470, 96, '#ffd166', 18);
-            txt('STAGE 1  ·  THE PROM', 540, 530, 36, '#ffffff', 8);
+            txt('STAGE ' + (r.level || 1) + '  ·  ' + (r.stage || 'THE PROM'), 540, 530, 36, '#ffffff', 8);
             // the score panel
             g.fillStyle = 'rgba(11,26,43,.78)';
             if (g.roundRect) { g.beginPath(); g.roundRect(90, 580, 900, 520, 48); g.fill(); } else g.fillRect(90, 580, 900, 520);
-            txt(r.done ? 'PROM SECURED' : 'GULL DOWN', 540, 660, 54, r.done ? '#ffd166' : '#ff6b5e');
+            txt(r.done ? (r.doneText || 'PROM SECURED') : 'GULL DOWN', 540, 660, 54, r.done ? '#ffd166' : '#ff6b5e');
             txt(fmt(r.score), 540, 800, 150, '#ffffff');
             txt('POINTS' + (r.best ? '  ·  NEW BEST!' : ''), 540, 850, 32, '#9fd3f0');
             var m = MEDAL[r.medal];
@@ -132,7 +133,7 @@
       btn.addEventListener('click', function () {
         if (!res) return;
         var r = res;
-        var text = 'I scored ' + fmt(r.score) + ' on Seagull Strike! Can you beat me? ' + URL_;
+        var text = 'I scored ' + fmt(r.score) + ' on Seagull Strike, stage ' + r.level + '! Can you beat me? ' + URL_;
         card(r).then(function (blob) {
           var file = new File([blob], 'seagull-strike-score.png', { type: 'image/png' });
           if (navigator.canShare && navigator.canShare({ files: [file] })) {

@@ -17,7 +17,8 @@ for _, a in ipairs(arg or {}) do
 end
 
 ---------------------------------------------------------------- settings
-local cfg = { sound = true, music = true, invert = false, best = 0, medal = 0 }
+local cfg = { sound = true, music = true, invert = false, best = 0, medal = 0, unlocked = 1,
+  best1 = 0, best2 = 0, best3 = 0, best4 = 0, best5 = 0, medal1 = 0, medal2 = 0, medal3 = 0, medal4 = 0, medal5 = 0 }
 local function saveCfg()
   if TEST then return end
   local t = {}
@@ -46,6 +47,8 @@ end
 
 ---------------------------------------------------------------- state
 local state = 'title'
+local level = 1            -- the stage chosen on the briefing screen
+local OPENALL = false      -- '--all-stages' (testing): every stage can be picked
 local clock, timer = 0, 0
 local menuSel, setSel, pauseSel, helpPage = 1, 1, 1, 1
 local paused = false
@@ -73,16 +76,46 @@ local HELP = {
     'The man in the white suit: 400. A wedding: 500 each.' } },
   { title = 'DANGERS', lines = {
     'Umbrellas block your drops. Squawk and they look up.', 'Newspaper men swat you if you fly low near them.',
-    'Children with water pistols aim at you. Steer away or roll.', 'You have 4 feathers. Lose them all and it is over.',
+    'Children with water pistols aim at you. Steer away or roll.', 'Watch for anyone with an arm going back ("!"): something is coming. Dodge it.',
+    'You have 3 feathers. Lose them all and it is over.',
     '', 'Sergeant Gannet will be on the radio. Listen to him.' } },
 }
-local BRIEF = {
-  'Ballyspray. Oh-seven-hundred hours.',
-  'The prom is full of people who think they own it.',
-  'Your orders: drop on as many of them as you can.',
-  'Eat to reload. Chips, cones, anything. A hungry gull is a dead gull.',
-  'Watch for umbrellas, newspapers and children with water pistols.',
-  'Good luck, gull. Ballyspray is counting on you.',
+local BRIEFS = {
+  { op = 'Operation Battered Sausage', lines = {
+    'Ballyspray. Oh-seven-hundred hours.',
+    'The prom is full of people who think they own it.',
+    'Your orders: drop on as many of them as you can.',
+    'Eat to reload. Chips, cones, anything. A hungry gull is a dead gull.',
+    'One holidaymaker throws flip-flops. Watch for the arm going back.',
+    'Good luck, gull. Ballyspray is counting on you.' } },
+  { op = 'Operation Mackerel Sky', lines = {
+    'The harbour. Midday. The trawlers are in.',
+    'The fishermen are not like the people on the prom.',
+    'Three of them will throw mackerel at you. Watch for the arm going back.',
+    'Fish in the crates. Eat well, you will need it.',
+    'And the harbour master is out on the quay.',
+    'Good luck, gull.' } },
+  { op = 'Operation Candyfloss', lines = {
+    'The amusements. Four in the afternoon.',
+    'Candyfloss, chips, ice cream. A feast.',
+    'Five lads at the coconut shy have spotted you. They have good arms.',
+    'Children with water pistols everywhere. Keep moving.',
+    'There is a clown. You know what to do.',
+    'Good luck, gull.' } },
+  { op = 'Operation Final Whistle', lines = {
+    'Match day. The whole town is out.',
+    'The crowd is thick and the burgers are hot.',
+    'Seven fans will throw their hats at you. They do not miss often.',
+    'No umbrellas today. Plenty of newspapers.',
+    'The referee is walking to the ground. Do it for the people.',
+    'Good luck, gull.' } },
+  { op = 'Operation Lid Off', lines = {
+    'Bin night. Midnight. The last mission.',
+    'The council has sent the binmen. Ten of them.',
+    'They throw bin lids. Hard, fast and straight.',
+    'The bins are full of pizza. Eat, or you will not make it.',
+    'The Mayor is on the prom. He signed the order against us.',
+    'Finish this, gull. For Ballyspray.' } },
 }
 
 local function sfx(name, pitch, vol) Snd.play(name, pitch, vol) end
@@ -94,7 +127,7 @@ local function shareOffer(r)
   if not WEB then return end
   shareN = shareN + 1
   if r then
-    love.window.setTitle(table.concat({ 'Seagull Strike', 'share', shareN, r.score, r.medal, r.hits, r.heads, r.combo, r.eaten, r.done and 1 or 0, r.newBest and 1 or 0 }, '|'))
+    love.window.setTitle(table.concat({ 'Seagull Strike', 'share', shareN, r.score, r.medal, r.hits, r.heads, r.combo, r.eaten, r.done and 1 or 0, r.newBest and 1 or 0, r.level, St.LEVELS[r.level].name, St.LEVELS[r.level].done }, '|'))
   else
     love.window.setTitle('Seagull Strike|hide|' .. shareN)
   end
@@ -107,17 +140,21 @@ local function toMenu()
 end
 local function startGame()
   if state == 'results' then shareOffer(nil) end
-  game = St.new({ sfx = sfx, invert = cfg.invert, auto = TEST and TEST.auto, seed = 2026 })
+  game = St.new({ sfx = sfx, invert = cfg.invert, auto = TEST and TEST.auto, seed = 2026, level = level })
   state = 'play'; paused = false; pauseSel = 1; timer = 0
   Snd.musicPlay('musicStage')
 end
 local function finish()
   local g = game
-  result = { score = g.score, hits = g.hits, heads = g.heads, combo = g.bestCombo, eaten = g.eaten, done = g.phase == 'done', why = g.downWhy }
-  result.medal = result.done and St.medal(g.score) or 0
-  result.newBest = g.score > cfg.best
-  if result.newBest then cfg.best = g.score end
+  local lv = g.level
+  result = { score = g.score, hits = g.hits, heads = g.heads, combo = g.bestCombo, eaten = g.eaten, done = g.phase == 'done', why = g.downWhy, level = lv }
+  result.medal = result.done and St.medal(g.score, lv) or 0
+  result.newBest = g.score > cfg['best' .. lv]
+  if result.newBest then cfg['best' .. lv] = g.score end
+  if g.score > cfg.best then cfg.best = g.score end
+  if result.medal > cfg['medal' .. lv] then cfg['medal' .. lv] = result.medal end
   if result.medal > cfg.medal then cfg.medal = result.medal end
+  if result.done and lv < #St.LEVELS and cfg.unlocked < lv + 1 then cfg.unlocked = lv + 1; result.unlockedNew = true end
   saveCfg()
   state = 'results'; timer = 0
   shareOffer(result)
@@ -161,13 +198,16 @@ local function action(a)
     elseif a == 'down' then menuSel = menuSel % #MENU + 1; sfx('select')
     elseif a == 'A' or a == 'start' then
       sfx('confirm')
-      if menuSel == 1 then state = 'brief'; timer = 0
+      if menuSel == 1 then state = 'brief'; timer = 0; level = TEST and level or cfg.unlocked
       elseif menuSel == 2 then state = 'help'; helpPage = 1
       elseif menuSel == 3 then state = 'settings'; setSel = 1
       else love.event.quit() end
     elseif a == 'B' or a == 'select' then state = 'title'; sfx('back') end
   elseif state == 'brief' then
-    if (a == 'A' or a == 'start') and timer > .4 then sfx('confirm'); startGame()
+    local top = (TEST or OPENALL) and #St.LEVELS or cfg.unlocked
+    if a == 'left' and level > 1 then level = level - 1; timer = 0; sfx('select')
+    elseif a == 'right' and level < top then level = level + 1; timer = 0; sfx('select')
+    elseif (a == 'A' or a == 'start') and timer > .4 then sfx('confirm'); startGame()
     elseif a == 'B' or a == 'select' then state = 'menu'; sfx('back') end
   elseif state == 'play' then
     if paused then
@@ -186,7 +226,12 @@ local function action(a)
     end
   elseif state == 'results' then
     if timer > .8 then
-      if a == 'A' or a == 'start' then sfx('confirm'); startGame()
+      if a == 'A' or a == 'start' then
+        sfx('confirm')
+        if result.done and result.level < #St.LEVELS then
+          shareOffer(nil); level = result.level + 1; state = 'brief'; timer = 0
+        elseif result.done then toMenu()
+        else startGame() end
       elseif a == 'B' or a == 'select' then sfx('back'); toMenu() end
     end
   elseif state == 'help' then
@@ -257,7 +302,8 @@ local function tapUI(x, y)
       local yy = 184 + 14 + (i - 1) * 44
       if y >= yy - 4 and y <= yy + 40 and math.abs(x - VW / 2) < 150 then menuSel = i; action('A'); return end
     end
-  elseif state == 'brief' then action('A')
+  elseif state == 'brief' then
+    if y < 140 and x < VW / 2 - 60 then action('left') elseif y < 140 and x > VW / 2 + 60 then action('right') else action('A') end
   elseif state == 'help' then
     if x < VW / 3 then action('left') elseif x > VW * 2 / 3 then action('right') else action('B') end
   elseif state == 'settings' then
@@ -374,14 +420,23 @@ local function drawBrief()
   local x, y = VW / 2 - w / 2, 60
   U.panel(x, y, w, h, 0.88)
   U.gannet(x + 70, y + 76, 46)
-  U.text('MISSION BRIEFING', 13, x + 136, y + 30, { 1, 0.72, 0.2 })
-  U.text('Operation Battered Sausage', 22, x + 136, y + 48, { 1, 1, 1 })
-  U.text('Sergeant Gannet, Ballyspray Lighthouse', 11, x + 136, y + 80, { 0.75, 0.82, 0.9 })
-  local shown = floor(timer / 0.5) + 1
-  for i, l in ipairs(BRIEF) do
-    if i <= shown then U.text(l, 15, x + 34, y + 140 + (i - 1) * 28, i == #BRIEF and { 1, 0.84, 0.25 } or { 1, 1, 1 }) end
+  local B = BRIEFS[level]
+  local L = St.LEVELS[level]
+  local top = (TEST or OPENALL) and #St.LEVELS or cfg.unlocked
+  U.text('MISSION BRIEFING  \194\183  STAGE ' .. level .. ' OF ' .. #St.LEVELS, 13, x + 136, y + 26, { 1, 0.72, 0.2 })
+  U.text(B.op, 22, x + 136, y + 44, { 1, 1, 1 })
+  U.text((level > 1 and '<  ' or '') .. L.name .. (level < top and '  >' or ''), 15, x + 136, y + 76, { 0.62, 0.83, 0.97 })
+  local m = cfg['medal' .. level]
+  if cfg['best' .. level] > 0 then
+    U.text('Best ' .. St.fmt(cfg['best' .. level]) .. (m > 0 and ('   ' .. ({ 'BRONZE', 'SILVER', 'GOLD' })[m]) or ''), 11, x + 136, y + 98, { 1, 0.84, 0.25 })
   end
-  if clock % 1.2 < 0.8 then U.text('A  -  take off', 13, VW / 2, y + h - 30, { 1, 1, 1 }, 'center') end
+  local shown = floor(timer / 0.5) + 1
+  for i, l in ipairs(B.lines) do
+    if i <= shown then U.text(l, 15, x + 34, y + 140 + (i - 1) * 28, i == #B.lines and { 1, 0.84, 0.25 } or { 1, 1, 1 }) end
+  end
+  if clock % 1.2 < 0.8 then
+    U.text(top > 1 and (TOUCH and 'Tap the arrows to pick a stage.   Tap below to take off.' or '<  >  pick a stage        A  -  take off') or 'A  -  take off', 13, VW / 2, y + h - 30, { 1, 1, 1 }, 'center')
+  end
 end
 
 local function drawPause()
@@ -407,8 +462,8 @@ local function drawResults()
   local w, h = min(VW - 40, 560), 400
   local x, y = VW / 2 - w / 2, 40
   U.panel(x, y, w, h, 0.9)
-  U.otext(r.done and 'PROM SECURED' or 'GULL DOWN', 40, VW / 2, y + 18, r.done and { 1, 0.84, 0.25 } or { 1, 0.4, 0.35 }, 'center', 1, 3)
-  if not r.done then U.text(r.why == 'hunger' and 'You fainted from hunger. Eat more chips.' or 'Out of feathers. Mind the newspapers.', 13, VW / 2, y + 70, { 1, 1, 1 }, 'center') end
+  U.otext(r.done and St.LEVELS[r.level].done or 'GULL DOWN', 40, VW / 2, y + 18, r.done and { 1, 0.84, 0.25 } or { 1, 0.4, 0.35 }, 'center', 1, 3)
+  if not r.done then U.text(r.why == 'hunger' and 'You fainted from hunger. Eat more chips.' or 'Out of feathers. Watch for the throwers.', 13, VW / 2, y + 70, { 1, 1, 1 }, 'center') end
   local rows = { { 'SCORE', St.fmt(r.score) }, { 'HITS', r.hits .. '   (' .. r.heads .. ' on the head)' }, { 'BEST COMBO', 'x' .. max(1, min(5, r.combo)) .. '  (' .. r.combo .. ' in a row)' }, { 'FOOD EATEN', tostring(r.eaten) } }
   for i, row in ipairs(rows) do
     local yy = y + 100 + (i - 1) * 32
@@ -430,12 +485,16 @@ local function drawResults()
     U.text(MEDALC[r.medal][2], 13, mx, my + 46, mc, 'center')
   elseif r.done then
     U.text('No medal', 13, mx, my - 6, { 0.8, 0.8, 0.8 }, 'center')
-    U.text('Bronze at ' .. St.fmt(St.MEDALS[1]), 11, mx, my + 12, { 0.7, 0.75, 0.8 }, 'center')
+    U.text('Bronze at ' .. St.fmt(St.LEVELS[r.level].medals[1]), 11, mx, my + 12, { 0.7, 0.75, 0.8 }, 'center')
   end
   if r.newBest and r.score > 0 then U.otext('NEW BEST!', 17, mx, y + 250, { 1, 0.84, 0.25 }, 'center') end
-  U.text('Next: Stage 2, The Harbour  -  coming soon', 13, VW / 2, y + (WEB and 270 or 300), { 0.85, 0.9, 1 }, 'center')
+  local nextLine, aWord = '', 'fly again'
+  if r.done and r.level < #St.LEVELS then
+    nextLine = (r.unlockedNew and 'UNLOCKED: ' or 'Next: ') .. 'Stage ' .. (r.level + 1) .. ', ' .. St.LEVELS[r.level + 1].name; aWord = 'next stage'
+  elseif r.done then nextLine = 'Every stage done. Sergeant Gannet salutes you.'; aWord = 'menu' end
+  U.text(nextLine, 13, VW / 2, y + (WEB and 270 or 300), r.unlockedNew and { 1, 0.84, 0.25 } or { 0.85, 0.9, 1 }, 'center')
   if timer > .8 and clock % 1.2 < 0.8 then
-    U.text(TOUCH and 'Tap left: fly again        Tap right: menu' or 'A  -  fly again        B  -  menu', 13, VW / 2, y + h - 34, { 1, 1, 1 }, 'center')
+    U.text(TOUCH and ('Tap left: ' .. aWord .. '        Tap right: menu') or ('A  -  ' .. aWord .. '        B  -  menu'), 13, VW / 2, y + h - 34, { 1, 1, 1 }, 'center')
   end
 end
 
@@ -476,6 +535,7 @@ function love.load(args)
   local size
   for i, a in ipairs(args or {}) do
     if a == '--test' then TEST = { f = 0, fast = 1 } end
+    if a == '--all-stages' then OPENALL = true end
     if a == '--size' and args[i + 1] then local w, h = args[i + 1]:match('(%d+)x(%d+)'); size = { tonumber(w), tonumber(h) } end
   end
   love.keyboard.setKeyRepeat(true)
@@ -619,7 +679,7 @@ testStep = function()
       waitFor(function() for _, p in ipairs(g.people) do if p.typ == 'suit' and p.z - W.cam.z < 24 then return true end end end, 2000)
       shot('18-white-suit')
       TEST.fast = 4
-      waitFor(function() return W.cam.z > St.END - 150 end, 20000)
+      waitFor(function() return W.cam.z > g.L.len - 150 end, 20000)
       TEST.fast = 1; shot('19-wedding')
       action('start'); wait(2); shot('20-pause'); action('start')
       TEST.fast = 4
@@ -627,10 +687,28 @@ testStep = function()
       TEST.fast = 1; wait(60); shot('21-end')
       waitFor(function() return state == 'results' end, 600); wait(80); shot('22-results')
       -- second go: starve
-      action('A'); wait(60)
+      action('B'); wait(5); menuSel = 1; action('A'); level = 1; timer = 1; action('A'); wait(60)
       game.hunger = 3; game.auto = false
       waitFor(function() return state == 'results' end, 900); wait(80); shot('23-gull-down')
       action('B'); wait(20); shot('24-back-to-menu')
+      -- stages 2 to 5
+      for lv = 2, #St.LEVELS do
+        menuSel = 1; action('A'); level = lv; timer = 0; wait(150); shot(lv .. '0-brief')
+        action('A'); wait(90)
+        local gg = game
+        shot(lv .. '1-start')
+        TEST.fast = 3
+        waitFor(function() for _, p in ipairs(gg.people) do if p.state == 'windup' and p.z - W.cam.z < 30 then return true end end end, 20000)
+        TEST.fast = 1; wait(10); shot(lv .. '2-windup')
+        waitFor(function() for _, o in ipairs(gg.throws) do if o.z - W.cam.z < 12 then return true end end end, 200); shot(lv .. '3-thrown')
+        TEST.fast = 4
+        waitFor(function() for _, p in ipairs(gg.people) do if p.typ == 'vip' and p.z - W.cam.z < 26 and p.z - W.cam.z > 10 then return true end end end, 30000)
+        TEST.fast = 1; shot(lv .. '4-special')
+        TEST.fast = 4
+        waitFor(function() return state == 'results' end, 40000)
+        TEST.fast = 1; wait(80); shot(lv .. '5-results')
+        action('B'); wait(10)
+      end
       TEST.quit = true
     end)
   end

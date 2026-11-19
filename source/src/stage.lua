@@ -1,4 +1,4 @@
--- Stage 1, "The Prom": the layout, the flying, the drops, the food, the dangers, the radio and the HUD.
+-- The five stages: the layout, the flying, the drops, the food, the dangers, the radio and the HUD.
 local W = require 'world'
 local U = require 'ui'
 local St = {}
@@ -8,12 +8,54 @@ local cam = W.cam
 local pi, min, max, floor, sin, cos, abs, sqrt = math.pi, math.min, math.max, math.floor, math.sin, math.cos, math.abs, math.sqrt
 local function clamp(v, a, b) if v < a then return a elseif v > b then return b end return v end
 
-St.END = 1450            -- metres of prom in stage 1
 local GRAV = 16          -- how fast drops fall
 local THROW = 11         -- drops leave the gull faster than it flies, so they land well ahead
-local BASE = 13          -- flying speed, metres per second
 local HZ0 = 170          -- the horizon on screen
-St.MEDALS = { 3500, 7000, 12000 }  -- bronze, silver, gold (the computer test pilot scores about 14,000)
+
+-- Each stage gets harder: faster flying, hungrier gull, more throwers who throw sooner, faster and straighter.
+-- len: metres to fly. throwers: how many. throwT: seconds a thrown thing takes to reach you (lower = harder).
+-- err: how far off their aim is (metres). shots: throws each. cd: seconds between their throws.
+St.LEVELS = {
+  { name = 'THE PROM', theme = 'prom', len = 1450, speed = 13, hunger = 1.45, throwers = 1, throwT = 1.3, err = 1.5, shots = 2, cd = 2.6,
+    kidsFrom = 430, paperFrom = 330, umbFrom = 200, thing = 'shoe', food = { 'chips', 'chips', 'cone', 'sandwich' },
+    shops = { 'chips', 'ices', 'cafe', 'chips' }, pal = { 'f2b5c4', 'f6d97a', 'a9d6e5', 'f4f1e8', 'b8e0c2', 'f3a76f', 'c9b8e8', 'fbfaf6', '9fc5e8', 'ffd6a5' },
+    pool = { 'walker', 'walker', 'cone', 'jogger', 'dog', 'pram', 'selfie', 'chips', 'walker' }, beach = true,
+    done = 'PROM SECURED', medals = { 3500, 7000, 12000 },
+    lines = { start = 'Ballyspray, oh-seven-hundred. The prom is busy. Make them remember us.', ['end'] = 'Prom secured. Back to the lighthouse, gull.' } },
+  { name = 'THE HARBOUR', theme = 'harbour', len = 1500, speed = 13.5, hunger = 1.55, throwers = 3, throwT = 1.15, err = 1.15, shots = 2, cd = 2.3,
+    kidsFrom = 380, paperFrom = 220, umbFrom = 160, thing = 'fish', food = { 'fish', 'fish', 'chips', 'sandwich' },
+    shops = { 'fish', 'chips', 'cafe', 'fish' }, pal = { '5c7fa3', 'd7dee5', 'e9c46a', 'f4f1e8', 'b56576', '8ecae6', 'a3b18a', 'f2b5c4' },
+    pool = { 'fisher', 'fisher', 'walker', 'map', 'chips', 'phone', 'dog', 'walker' }, boats = true,
+    vip = { pts = 400, top = '1d3557', bottom = '1d3557', cap = 'ffffff', tie = 'ffd166', say = { 'MY HARBOUR!', 'This is a working port!' } },
+    done = 'HARBOUR TAKEN', medals = { 4500, 9000, 15000 },
+    lines = { start = 'The harbour. Fishermen have long memories, son. Mind the mackerel.', vip = 'Harbour master on the quay. He has had this coming.',
+      ['end'] = 'Harbour taken. The trawlermen will talk about this for years.' } },
+  { name = 'THE AMUSEMENTS', theme = 'fair', len = 1550, speed = 14, hunger = 1.65, throwers = 5, throwT = 1.05, err = 0.95, shots = 3, cd = 2.0,
+    kidsFrom = 120, paperFrom = 260, umbFrom = 160, thing = 'ball', food = { 'candyfloss', 'chips', 'cone', 'burger' },
+    shops = { 'arcade', 'bingo', 'ices', 'arcade', 'chips' }, pal = { 'ffafcc', 'bde0fe', 'fdffb6', 'caffbf', 'ffc6ff', 'ffd6a5' },
+    pool = { 'walker', 'cone', 'candy', 'candy', 'selfie', 'pram', 'jogger', 'walker', 'chips' }, beach = true,
+    vip = { pts = 400, top = 'f72585', bottom = 'ffbe0b', cap = '3a86ff', stripe = '4cc9f0', say = { 'HONK HONK?!', 'Not the face paint!' } },
+    done = 'FUNFAIR FLATTENED', medals = { 4500, 8500, 14000 },
+    lines = { start = 'The amusements. Children, candyfloss and chaos. Stay sharp.', vip = 'A clown. Nobody will miss him.',
+      ['end'] = 'The funfair is ours. Go easy on the candyfloss.' } },
+  { name = 'MATCH DAY', theme = 'match', len = 1600, speed = 14.5, hunger = 1.75, throwers = 7, throwT = 0.95, err = 0.75, shots = 3, cd = 1.8,
+    kidsFrom = 250, paperFrom = 160, umbFrom = 99999, thing = 'hat', food = { 'burger', 'chips', 'burger', 'pizza' },
+    shops = { 'pub', 'chips', 'pub', 'kebab' }, pal = { '2d6a4f', 'f4f1e8', 'c1121f', 'e9c46a', 'a9d6e5', 'f2b5c4' },
+    pool = { 'fan', 'fan', 'fan', 'chips', 'walker', 'fan', 'phone' }, crowd = true,
+    vip = { pts = 1000, top = '111111', bottom = '111111', stripe = 'ffd166', say = { 'YELLOW CARD!', 'I SAW THAT!' } },
+    done = 'FULL TIME', medals = { 4000, 7500, 12000 },
+    lines = { start = 'Match day. Ten thousand fans and not one of them likes gulls.', vip = 'The referee. Do it for the people.',
+      ['end'] = 'Full time. Ballyspray will never forget it.' } },
+  { name = 'BIN NIGHT', theme = 'night', len = 1650, speed = 15, hunger = 1.85, throwers = 10, throwT = 0.85, err = 0.55, shots = 3, cd = 1.6,
+    kidsFrom = 99999, paperFrom = 120, umbFrom = 99999, thing = 'lid', food = { 'pizza', 'chips', 'burger', 'pizza' },
+    shops = { 'kebab', 'chips', 'pub', 'kebab' }, pal = { 'f2b5c4', 'f6d97a', 'a9d6e5', 'f4f1e8', 'b8e0c2', 'c9b8e8' },
+    pool = { 'walker', 'binman', 'chips', 'walker', 'binman', 'phone' }, binsMany = true,
+    vip = { pts = 1000, top = '1d3557', bottom = '1d3557', tie = 'ffd166', stripe = 'ffd166', say = { 'I AM THE MAYOR!', 'Do you know who I am?!' } },
+    done = 'BALLYSPRAY IS OURS', medals = { 6000, 13000, 22000 },
+    lines = { start = 'Bin night. The town sleeps. The bins do not. This is the big one.', vip = 'The Mayor. He signed the order against us. Make it count.',
+      ['end'] = 'Ballyspray is ours. I am proud of you, gull.' } },
+}
+St.MEDALS = St.LEVELS[1].medals
 
 ---------------------------------------------------------------- who's on the prom
 local TYPES = {
@@ -35,6 +77,12 @@ local TYPES = {
   groom = { pts = 500, say = { 'It\'s lucky, they say.', 'Ah lads.' }, still = true },
   snapper = { pts = 300, say = { 'Got it!', 'Beautiful.' }, pose = 'camera', still = true },
   pal = { pts = 150, say = { 'OI!', 'Ah no.' }, still = true },
+  fisher = { pts = 150, say = { 'Not on the oilskin!', 'Gerrup outta that!' } },
+  candy = { pts = 150, say = { 'MY CANDYFLOSS!', 'It is all sticky now!' }, pose = 'chips', food = 'candyfloss' },
+  fan = { pts = 150, say = { 'REF! REF!', 'Up the Bally!', 'That is a foul!' } },
+  binman = { pts = 200, say = { 'I am on shift here!', 'Charming.' } },
+  thrower = { pts = 250, say = { 'MISSED ME!', 'Come back here!', 'Right. That is it.' }, pose = 'thrower', still = true },
+  vip = { pts = 400, say = { 'OI!' }, still = true },
 }
 local SKINS = { 'f1c9a5', 'e0ac69', 'c68642', '8d5524', 'f2b8a0', 'ffdbac' }
 local HAIRS = { '2b1d14', '4a2c1d', '6b4f3a', 'e9c46a', '1b1b1b', 'a0a0a0', 'b5562b' }
@@ -66,6 +114,22 @@ local function newPerson(g, typ, x, z)
   if typ == 'umb' then p.umbOpen = true; p.umbC = hex(pick(r, { 'e63946', '3a86ff', 'ffbe0b', '8338ec', '06d6a0' })) end
   if typ == 'pram' then p.pramC = hex(pick(r, { 'ef476f', '3d5a80', '2a9d8f' })); p.vz = -abs(p.vz) end
   if typ == 'selfie' then p.hairStyle = 'long' end
+  local th = g.L.theme
+  if typ == 'fisher' or (typ == 'thrower' and th == 'harbour') then p.top = hex('ffbe0b'); p.bottom = hex('ffbe0b'); p.cap = hex('ffbe0b'); p.shoes = hex('2b2b2b') end
+  if typ == 'fan' or (th == 'match' and (typ == 'thrower' or typ == 'walker' or typ == 'chips')) then
+    local j = r:random() < 0.7 and '2d6a4f' or 'c1121f'
+    p.top = hex(j); p.stripe = hex('ffffff')
+    if typ ~= 'thrower' and r:random() < 0.4 then p.cap = hex(j) end
+  end
+  if typ == 'binman' or (typ == 'thrower' and th == 'night') then p.top = hex('ff7b00'); p.stripe = hex('e9ff70'); p.bottom = hex('22223b'); p.cap = hex('22223b') end
+  if typ == 'thrower' and th == 'prom' then p.shorts = true; p.top = hex('ff5d8f') end
+  if typ == 'thrower' and th == 'fair' then p.h = 1.5; p.cap = hex('3a86ff'); p.shorts = true end
+  if typ == 'thrower' then p.throwKind = g.L.thing end
+  if typ == 'vip' then
+    local v = g.L.vip
+    p.top = hex(v.top); p.bottom = hex(v.bottom); p.pts = v.pts
+    p.tie = v.tie and hex(v.tie); p.cap = v.cap and hex(v.cap); p.stripe = v.stripe and hex(v.stripe)
+  end
   g.people[#g.people + 1] = p
   return p
 end
@@ -78,64 +142,87 @@ end
 
 local function build(g)
   local r = g.rng
+  local L = g.L
+  local END = L.len
   local z, i, shopK = -10, 0, 0
-  while z < St.END + 600 do
+  while z < END + 600 do
     i = i + 1
     local w = 6.4 + r:random() * 2.2
-    local h = { z0 = z, z1 = z + w, h = 8.8 + r:random() * 2.4, c = hex(PAL[(i - 1) % #PAL + 1]), door = (i % 6) + 1 }
-    if i % 5 == 3 then shopK = shopK + 1; h.shop = ({ 'chips', 'ices', 'cafe', 'chips' })[(shopK - 1) % 4 + 1]; h.c = hex('f4f1e8') end
+    local h = { z0 = z, z1 = z + w, h = 8.8 + r:random() * 2.4, c = hex(L.pal[(i - 1) % #L.pal + 1]), door = (i % 6) + 1 }
+    if i % (L.theme == 'fair' and 2 or 5) == (L.theme == 'fair' and 1 or 3) then
+      shopK = shopK + 1; h.shop = L.shops[(shopK - 1) % #L.shops + 1]; h.c = hex('f4f1e8')
+    end
     g.houses[#g.houses + 1] = h
     z = z + w
   end
-  for lz = 11, St.END + 400, 15 do g.lamps[#g.lamps + 1] = { kind = 'lamp', x = -7.95, z = lz } end
-  for lz = 19, St.END + 400, 17 do g.lamps[#g.lamps + 1] = { kind = 'lamp', x = 11.4, z = lz } end
-  for bz = 13.5, St.END + 300, 27 do g.benches[#g.benches + 1] = { kind = 'bench', z = bz } end
-  for bz = 24.6, St.END + 300, 38 do
+  for lz = 11, END + 400, 15 do g.lamps[#g.lamps + 1] = { kind = 'lamp', x = -7.95, z = lz } end
+  for lz = 19, END + 400, 17 do g.lamps[#g.lamps + 1] = { kind = 'lamp', x = 11.4, z = lz } end
+  for bz = 13.5, END + 300, 27 do g.benches[#g.benches + 1] = { kind = 'bench', z = bz } end
+  local binGap = L.binsMany and 18 or (L.theme == 'harbour' and 24 or 38)
+  for bz = 24.6, END + 300, binGap do
     g.bins[#g.bins + 1] = { kind = 'bin', x = -7.3, z = bz }
-    if bz > 40 and r:random() < 0.5 then addItem(g, r:random() < 0.7 and 'chips' or 'sandwich', -7.3, bz - 0.05, 1.0) end
+    if bz > 40 and r:random() < (L.binsMany and 0.6 or 0.5) then addItem(g, L.food[floor(r:random() * #L.food) + 1], -7.3, bz - 0.05, 1.0) end
   end
-  for wz = 20, St.END + 300, 55 + floor(r:random() * 30) do g.winds[#g.winds + 1] = { kind = 'wind', z = wz } end
-  for _, cz in ipairs({ 140, 610, 1080 }) do
-    g.chairs[#g.chairs + 1] = { kind = 'chair', x = -11.2, z = cz }
-    newPerson(g, 'lifeguard', -10.3, cz + 0.6)
+  if L.binsMany then
+    for bz = 30, END + 300, 21 do g.bins[#g.bins + 1] = { kind = 'bin', x = 12.2, z = bz } end
+  end
+  if L.beach then
+    for wz = 20, END + 300, 55 + floor(r:random() * 30) do g.winds[#g.winds + 1] = { kind = 'wind', z = wz } end
+    for _, cz in ipairs({ 140, 610, 1080 }) do
+      g.chairs[#g.chairs + 1] = { kind = 'chair', x = -11.2, z = cz }
+      newPerson(g, 'lifeguard', -10.3, cz + 0.6)
+    end
+  end
+  if L.boats then
+    for tz = 30, END + 300, 26 + floor(r:random() * 16) do g.trawlers[#g.trawlers + 1] = { kind = 'trawler', z = tz, c = pick(r, { '1d3557', 'c1121f', '2a9d8f', '264653' }) } end
   end
   for k, b in ipairs({ { -60, 105 }, { -180, 300 }, { -90, 520 }, { -140, 800 }, { -70, 1050 }, { -120, 1300 }, { -200, 1700 } }) do
     g.boats[#g.boats + 1] = { kind = 'boat', x = b[1], z = b[2], c = ({ '264653', 'e63946', '1d3557' })[k % 3 + 1] }
   end
-  g.piers[1] = { kind = 'pier', z = St.END + 60 }
+  g.piers[1] = { kind = 'pier', z = END + 60 }
   z = 17
-  while z < St.END + 300 do
+  while z < END + 300 do
     g.cars[#g.cars + 1] = { kind = 'car', z = z, c = hex(pick(r, CARS)) }
     z = z + 4.3 + 1.5 + r:random() * 10
   end
   -- people
   z = 30
-  while z < St.END - 60 do
-    local pool = { 'walker', 'walker', 'cone', 'jogger', 'dog', 'pram', 'selfie', 'chips', 'walker' }
-    if z > 200 then for _, t in ipairs({ 'phone', 'map', 'umb', 'phone' }) do pool[#pool + 1] = t end end
-    if z > 330 then pool[#pool + 1] = 'paper' end
-    if z > 430 then pool[#pool + 1] = 'kid'; pool[#pool + 1] = 'umb' end
-    if z > 800 then pool[#pool + 1] = 'kid'; pool[#pool + 1] = 'paper' end
+  while z < END - 60 do
+    local pool = {}
+    for _, t in ipairs(L.pool) do pool[#pool + 1] = t end
+    if z > L.umbFrom then pool[#pool + 1] = 'umb'; pool[#pool + 1] = 'phone' end
+    if z > L.paperFrom then pool[#pool + 1] = 'paper' end
+    if z > L.kidsFrom then pool[#pool + 1] = 'kid'; if z > L.kidsFrom + 400 then pool[#pool + 1] = 'kid' end end
     local typ = pick(r, pool)
     local x = -7.0 + r:random() * 6.6
     if typ ~= 'kid' and typ ~= 'paper' and r:random() < 0.12 then x = 11.6 + r:random() * 1.8 end
-    local p = newPerson(g, typ, x, z)
+    newPerson(g, typ, x, z)
     if typ == 'selfie' then local q = newPerson(g, 'pal', x + 0.7, z + 0.3); q.pose = 'walk' end
-    if r:random() < 0.35 then newPerson(g, pick(r, { 'walker', 'cone', 'chips', 'dog' }), clamp(x + (r:random() * 3 - 1.5), -7.2, 0), z + 2 + r:random() * 3) end
-    z = z + 8 + r:random() * 9
-    p.zo = 0
+    local extra = L.crowd and 0.75 or 0.35
+    if r:random() < extra then newPerson(g, pick(r, L.pool), clamp(x + (r:random() * 3 - 1.5), -7.2, 0), z + 2 + r:random() * 3) end
+    z = z + (L.crowd and 5 or 8) + r:random() * (L.crowd and 6 or 9)
   end
-  newPerson(g, 'suit', -3.4, 930).vz = -1.1
-  newPerson(g, 'bride', -4.5, St.END - 120)
-  newPerson(g, 'groom', -3.7, St.END - 119.8)
-  newPerson(g, 'snapper', -1.6, St.END - 126)
-  -- chips lying about
-  addItem(g, 'chips', -2.6, 62)
+  -- the throwers, spread along the stage
+  for k = 1, L.throwers do
+    local tz = END * (0.16 + 0.74 * (k - 0.5) / L.throwers)
+    newPerson(g, 'thrower', -6.5 + r:random() * 5.5, tz)
+  end
+  -- someone special
+  if L.theme == 'prom' then
+    newPerson(g, 'suit', -3.4, 930).vz = -1.1
+    newPerson(g, 'bride', -4.5, END - 120)
+    newPerson(g, 'groom', -3.7, END - 119.8)
+    newPerson(g, 'snapper', -1.6, END - 126)
+  else
+    newPerson(g, 'vip', -3.2, L.theme == 'night' and END - 110 or END * 0.6)
+  end
+  -- food lying about
+  addItem(g, L.food[1], -2.6, 62)
   z = 95
-  while z < St.END do
+  while z < END do
     local x = -7 + r:random() * 6.5
-    if r:random() < 0.2 then x = -11 + r:random() * 2 end
-    addItem(g, pick(r, { 'chips', 'chips', 'cone', 'sandwich' }), x, z)
+    if L.beach and r:random() < 0.2 then x = -11 + r:random() * 2 end
+    addItem(g, pick(r, L.food), x, z)
     z = z + 32 + r:random() * 22
   end
 end
@@ -156,7 +243,7 @@ local LINES = {
   hit = 'You\'re hit! Shake it off.',
   hat = 'Hat trick. I haven\'t seen flying like that since the summer of \'09.',
   empty = 'You\'re empty. Find food.',
-  ['end'] = 'Prom secured. Back to the lighthouse, gull.',
+  throw = 'Incoming! Watch the one with his arm back. Dodge it.',
   downF = 'Gull down. Gull down.',
   downH = 'He fainted. Too proud to eat a chip.',
 }
@@ -165,16 +252,21 @@ local function radio(g, key, force)
   g.said = g.said or {}
   if g.said[key] and not force then return end
   g.said[key] = true
-  table.insert(g.radio, { text = LINES[key], t = 4.2 })
+  local text = (g.L.lines and g.L.lines[key]) or LINES[key]
+  if text then table.insert(g.radio, { text = text, t = 4.2 }) end
 end
 
 ---------------------------------------------------------------- making a stage
 function St.new(opts)
   opts = opts or {}
-  local g = { rng = love.math.newRandomGenerator(opts.seed or 2026), houses = {}, lamps = {}, benches = {}, bins = {}, winds = {}, chairs = {},
-    boats = {}, piers = {}, people = {}, items = {}, drops = {}, jets = {}, cars = {}, decals = {}, pops = {}, radio = {},
+  local level = opts.level or 1
+  local L = St.LEVELS[level]
+  W.setTheme(L.theme)
+  local g = { rng = love.math.newRandomGenerator((opts.seed or 2026) + level * 101), houses = {}, lamps = {}, benches = {}, bins = {}, winds = {}, chairs = {},
+    boats = {}, piers = {}, people = {}, items = {}, drops = {}, jets = {}, cars = {}, decals = {}, pops = {}, radio = {}, throws = {}, trawlers = {},
+    L = L, level = level,
     demo = opts.demo, auto = opts.auto, invert = opts.invert, sfx = opts.sfx or function() end,
-    t = 0, speed = BASE, cruiseY = 7, vx = 0, payload = 6, hunger = 85, feathers = 4, score = 0, combo = 0, bestCombo = 0,
+    t = 0, speed = L.speed, cruiseY = 7, vx = 0, payload = 6, hunger = 85, feathers = 3, score = 0, combo = 0, bestCombo = 0,
     heads = 0, hits = 0, eaten = 0, headStreak = 0, phase = 'play', flap = 0, dropCD = 0, squawkCD = 0, flapCD = 0, hurtT = 0, shake = 0 }
   cam.x, cam.y, cam.z, cam.roll, cam.hz = -2.5, 7, 0, 0, HZ0
   build(g)
@@ -219,7 +311,7 @@ local function hitPerson(g, p, where)
   g.bestCombo = max(g.bestCombo, g.combo)
   if where == 'head' then p.splat = true; g.heads = g.heads + 1; g.headStreak = g.headStreak + 1 else p.bodySplat = true; g.headStreak = 0 end
   p.state = 'hit'; p.st = 0
-  local says = TYPES[p.typ].say
+  local says = (p.typ == 'vip' and g.L.vip.say) or TYPES[p.typ].say
   p.say = says[floor(g.rng:random() * #says) + 1]; p.sayT = 2.2
   if p.food then addItem(g, p.food, p.x + 0.4, p.z); p.food = nil end
   if p.typ == 'umb' then p.umbOpen = false; p.umbT = 99 end
@@ -309,6 +401,12 @@ local function autopilot(g)
   end
   g.ap = g.ap or {}
   if g.phase ~= 'play' then return inp end
+  for _, j in ipairs(g.throws) do
+    if j.z - cam.z < 8 and abs(j.x - cam.x) < 2 and not g.rollT then
+      if j.x > cam.x then inp.rollL = true else inp.rollR = true end
+      return inp
+    end
+  end
   for _, j in ipairs(g.jets) do
     if j.z - cam.z < 9 and not g.rollT then
       if j.x > cam.x then inp.rollL = true else inp.rollR = true end
@@ -357,8 +455,8 @@ function St.update(g, dt, inp)
   if not play then g.endT = (g.endT or 0) + dt end
 
   if g.flapT then g.flapT = g.flapT + dt; if g.flapT > 1.3 then g.flapT = nil end end
-  local target = BASE + (g.flapT and 9 or 0)
-  if g.phase == 'down' then target = BASE * 0.5 end
+  local target = g.L.speed + (g.flapT and 9 or 0)
+  if g.phase == 'down' then target = g.L.speed * 0.5 end
   g.speed = g.speed + (target - g.speed) * min(1, dt * 3)
   cam.z = cam.z + g.speed * dt
 
@@ -411,13 +509,13 @@ function St.update(g, dt, inp)
     if inp.squawk and g.squawkCD <= 0 then squawk(g) end
     if inp.flap and not g.flapT and g.flapCD <= 0 then g.flapT = 0; g.flapCD = 1.6; g.hunger = g.hunger - 3; g.sfx('flap') end
     if (inp.rollL or inp.rollR) and not g.rollT and not g.swoopT then g.rollT = 0; g.rollDir = inp.rollL and -1 or 1; g.sfx('whoosh', 1.5) end
-    g.hunger = g.hunger - 1.45 * dt
+    g.hunger = g.hunger - g.L.hunger * dt
     if g.hunger < 25 then radio(g, 'hungry') end
     if g.payload <= 1 then radio(g, 'food') end
     if g.hunger <= 0 then g.hunger = 0; g.phase = 'down'; g.endT = 0; g.downWhy = 'hunger'; g.sfx('sad'); radio(g, 'downH') end
     if g.t > 0.6 then radio(g, 'start') end
     if g.t > 6 and g.hits == 0 then radio(g, 'aim') end
-    if cam.z >= St.END then g.phase = 'done'; g.endT = 0; g.sfx('fanfare'); radio(g, 'end') end
+    if cam.z >= g.L.len then g.phase = 'done'; g.endT = 0; g.sfx('fanfare'); radio(g, 'end') end
   end
 
   -- drops in flight
@@ -447,6 +545,27 @@ function St.update(g, dt, inp)
           if p.typ == 'paper' then radio(g, 'paper') end
         end
         if p.typ == 'suit' and d > 0 and d < 45 then radio(g, 'suit') end
+        if p.typ == 'vip' and d > 0 and d < 50 then radio(g, 'vip') end
+        if p.typ == 'thrower' then
+          if p.state == 'walk' or p.state == 'look' then
+            p.cd = (p.cd or 0) - dt
+            if d > 12 and d < 36 and abs(p.x - cam.x) < 10 and p.cd <= 0 and (p.shots or 0) < g.L.shots then
+              p.state = 'windup'; p.st = 0; p.say = '!'; p.sayT = 0.6
+              radio(g, 'throw')
+            end
+          elseif p.state == 'windup' and p.st > 0.55 then
+            local L = g.L
+            local T = L.throwT
+            local y0 = p.h + 0.3
+            local tx = cam.x + g.vx * T * 0.5 + (g.rng:random() * 2 - 1) * L.err
+            local ty = clamp(cam.y + (g.rng:random() * 2 - 1) * L.err * 0.6, 1.2, 12)
+            local tz = cam.z + g.speed * T
+            g.throws[#g.throws + 1] = { kind = 'throw', what = p.throwKind, x = p.x, y = y0, z = p.z, t = 0, rot = 0,
+              vx = (tx - p.x) / T, vz = (tz - p.z) / T, vy = (ty - y0) / T + 0.5 * 9 * T, spin = (g.rng:random() < 0.5 and -1 or 1) * 9 }
+            p.state = 'thrown'; p.st = 0; p.shots = (p.shots or 0) + 1; p.cd = L.cd
+            g.sfx('whoosh', 1.7, 0.6)
+          elseif p.state == 'thrown' and p.st > 0.5 then p.state = 'walk' end
+        end
         if p.typ == 'bride' and d > 0 and d < 55 then radio(g, 'wedding') end
         if p.typ == 'paper' and p.state == 'walk' and d > 0 and d < 6 and abs(p.x - cam.x) < 2.6 and cam.y < 4.5 then
           p.state = 'swing'; p.st = 0; p.say = 'COME HERE!'; p.sayT = 1
@@ -481,6 +600,21 @@ function St.update(g, dt, inp)
       end
       table.remove(g.jets, i)
     elseif j.t > 1.6 then table.remove(g.jets, i) end
+  end
+
+  -- things thrown at the gull
+  for i = #g.throws, 1, -1 do
+    local o = g.throws[i]
+    o.t = o.t + dt
+    o.vy = o.vy - 9 * dt
+    o.x = o.x + o.vx * dt; o.y = o.y + o.vy * dt; o.z = o.z + o.vz * dt; o.rot = o.rot + o.spin * dt
+    if o.z <= cam.z + 0.4 then
+      if abs(o.x - cam.x) < 0.85 and abs(o.y - cam.y) < 0.95 then
+        if hurt(g, 'throw') then pop(g, cam.x, cam.y - 1, cam.z + 3, 'BONK!', nil, { 1, 0.45, 0.3 }, 22)
+        elseif g.rollT then pop(g, cam.x, cam.y - 1, cam.z + 4, 'DODGED!', nil, { 1, 1, 1 }, 15) end
+      end
+      table.remove(g.throws, i)
+    elseif o.t > 2.5 or o.y < -1 then table.remove(g.throws, i) end
   end
 
   -- grabbing food on a swoop
@@ -583,12 +717,12 @@ function St.drawHUD(g, VW, t)
     U.text('COMBO', 11, 208, 31, { 1, 0.95, 0.85 })
   end
   -- stage + distance
-  local stage = 'STAGE 1  \194\183  THE PROM'
+  local stage = 'STAGE ' .. g.level .. '  \194\183  ' .. g.L.name
   local sw = U.f[11]:getWidth(stage) + 26
   local sx = VW / 2 - sw / 2 + 30
   U.panel(sx, 14, sw, 30)
   U.text(stage, 11, sx + 13, 19, { 1, 1, 1 })
-  local prog = clamp(cam.z / St.END, 0, 1)
+  local prog = clamp(cam.z / g.L.len, 0, 1)
   lg.setColor(1, 1, 1, 0.18); lg.rectangle('fill', sx + 13, 36, sw - 26, 3, 1.5)
   lg.setColor(hex('ffd166')); lg.rectangle('fill', sx + 13, 36, (sw - 26) * prog, 3, 1.5)
   -- bars
@@ -629,8 +763,8 @@ function St.drawHUD(g, VW, t)
   -- banners
   if g.t < 2.8 and g.phase == 'play' then
     local a = min(1, (2.8 - g.t) * 2)
-    U.otext('STAGE 1', 22, VW / 2, 176, { 1, 0.84, 0.25 }, 'center', a)
-    U.otext('THE PROM', 40, VW / 2, 200, { 1, 1, 1 }, 'center', a, 3)
+    U.otext('STAGE ' .. g.level, 22, VW / 2, 176, { 1, 0.84, 0.25 }, 'center', a)
+    U.otext(g.L.name, 40, VW / 2, 200, { 1, 1, 1 }, 'center', a, 3)
   end
   if g.t < 14 and g.phase == 'play' then
     local a = min(1, (14 - g.t))
@@ -643,7 +777,7 @@ function St.drawHUD(g, VW, t)
   if g.emptyT then U.otext('EMPTY! EAT SOMETHING', 17, VW / 2, 330, { 1, 0.45, 0.4 }, 'center', min(1, g.emptyT * 2)) end
   if g.phase == 'done' then
     local a = min(1, g.endT * 2)
-    U.otext('PROM SECURED', 40, VW / 2, 190, { 1, 0.84, 0.25 }, 'center', a, 3)
+    U.otext(g.L.done, 40, VW / 2, 190, { 1, 0.84, 0.25 }, 'center', a, 3)
   elseif g.phase == 'down' then
     local a = min(1, g.endT * 2)
     U.otext('GULL DOWN', 40, VW / 2, 190, { 1, 0.4, 0.35 }, 'center', a, 3)
@@ -651,9 +785,9 @@ function St.drawHUD(g, VW, t)
   end
 end
 
-function St.medal(score)
+function St.medal(score, level)
   local m = 0
-  for k, v in ipairs(St.MEDALS) do if score >= v then m = k end end
+  for k, v in ipairs(St.LEVELS[level or 1].medals) do if score >= v then m = k end end
   return m
 end
 

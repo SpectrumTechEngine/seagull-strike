@@ -1,6 +1,6 @@
 // Seagull Strike service worker: fetch the newest game when online, fall back to the saved copy offline.
 // The cache name is stamped by build-web.mjs on every build, so each release gets a fresh cache.
-const C = 'seagull-strike-202611191839';
+const C = 'seagull-strike-202611191913';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'game.js', 'love.js', 'love.wasm', 'game.data'];
 self.addEventListener('install', (e) => { self.skipWaiting(); e.waitUntil(caches.open(C).then((c) => c.addAll(FILES)).catch(() => {})); });
 self.addEventListener('activate', (e) => {
