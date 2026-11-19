@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#0b1a2b" />
+  <title>Seagull Strike</title>
+  <meta name="description" content="You are a seagull over the prom at Ballyspray. Eat chips. Drop on people. Taken extremely seriously." />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <meta property="og:title" content="Seagull Strike" />
+  <meta property="og:description" content="Eat chips. Drop on people. Taken extremely seriously." />
+  <meta property="og:image" content="https://thespectrumtechengine.com/seagull-strike/share.png" />
+  <meta property="og:url" content="https://thespectrumtechengine.com/seagull-strike/" />
+  <meta property="og:type" content="website" />
+  <script src="https://thespectrumtechengine.com/ste-owner.js" data-app="seagull-strike" defer></script>
+  <style>
+    html, body { margin: 0; height: 100%; background: #0b1a2b; overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #fff; }
+    #canvas { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); visibility: hidden; outline: none; image-rendering: auto; }
+    #load { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+      background: linear-gradient(#3a86d6, #d4ebf6 62%, #17639e 62%, #2a8fc4); text-align: center; padding: 20px; }
+    #load img { width: 120px; height: 120px; border-radius: 26px; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+    #load h1 { margin: 0; font-size: 44px; letter-spacing: 1px; color: #ffd166; text-shadow: 0 3px 0 #0f1424, 0 0 8px #0f1424; }
+    #load p { margin: 0; font-size: 16px; color: #0b1a2b; font-weight: 600; }
+    #bar { width: 240px; height: 10px; border-radius: 5px; background: rgba(11,26,43,.25); overflow: hidden; }
+    #bar i { display: block; height: 100%; width: 0; background: #ff7a2f; transition: width .2s; }
+    #turn { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 10px;
+      background: #0b1a2b; font-size: 20px; text-align: center; padding: 30px; z-index: 5; }
+    #turn b { font-size: 54px; }
+    @media (orientation: portrait) and (pointer: coarse) { #turn { display: flex; } }
+    .ste-badge { position: absolute; left: 6px; bottom: 6px; z-index: 4; font-size: 10px; padding: 3px 7px; border-radius: 10px; border: 0;
+      background: rgba(11,26,43,.55); color: rgba(255,255,255,.7); }
+    #share { position: absolute; z-index: 4; display: none; transform: translate(-50%, 0); border: 0; border-radius: 999px; padding: .55em 1.3em;
+      background: #25d366; color: #fff; font-weight: 800; box-shadow: 0 4px 14px rgba(0,0,0,.35); cursor: pointer; }
+    #full { position: absolute; right: 8px; bottom: 8px; z-index: 4; display: none; border: 0; border-radius: 12px; padding: 7px 10px;
+      background: rgba(11,26,43,.6); color: #fff; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+  <div id="load">
+    <img src="icon-192.png" alt="" />
+    <h1>SEAGULL STRIKE</h1>
+    <div id="bar"><i></i></div>
+    <p id="msg">Loading the gull...</p>
+  </div>
+  <div id="turn"><b>&#x21bb;</b>Turn your phone sideways to play.</div>
+  <button class="ste-badge" data-ste-badge aria-label="The Spectrum Tech Engine">The Spectrum Tech Engine</button>
+  <button id="full">&#x26f6; Full screen</button>
+  <button id="share">&#x1f4e4; Share my score</button>
+  <script>
+    // ---- the WhatsApp share card: the game puts its result in the window title, we draw a card and share it
+    (function () {
+      var btn = document.getElementById('share'), last = '', res = null;
+      var MEDAL = [null, ['#cd7f32', 'BRONZE'], ['#c0c7cf', 'SILVER'], ['#ffd166', 'GOLD']];
+      var URL_ = 'https://thespectrumtechengine.com/seagull-strike/';
+      function fmt(n) { return Number(n).toLocaleString('en-IE'); }
+      function place() {
+        var r = document.getElementById('canvas').getBoundingClientRect();
+        btn.style.left = (r.left + r.width / 2) + 'px';
+        btn.style.top = (r.top + r.height * 336 / 480) + 'px';
+        btn.style.fontSize = Math.max(13, r.height * 15 / 480) + 'px';
+      }
+      setInterval(function () {
+        var t = document.title;
+        if (t === last || t.indexOf('Seagull Strike|') !== 0) return;
+        last = t;
+        var p = t.split('|');
+        if (p[1] === 'share') {
+          res = { score: +p[3], medal: +p[4], hits: +p[5], heads: +p[6], combo: +p[7], eaten: +p[8], done: p[9] === '1', best: p[10] === '1' };
+          place(); btn.style.display = 'block';
+        } else { res = null; btn.style.display = 'none'; }
+        document.title = 'Seagull Strike'; last = document.title;
+      }, 250);
+      window.addEventListener('resize', place);
+
+      function card(r) {
+        var c = document.createElement('canvas'); c.width = 1080; c.height = 1350;
+        var g = c.getContext('2d');
+        var sky = g.createLinearGradient(0, 0, 0, 900); sky.addColorStop(0, '#2f7fd0'); sky.addColorStop(1, '#bfe5f6');
+        g.fillStyle = sky; g.fillRect(0, 0, 1080, 900);
+        var sea = g.createLinearGradient(0, 900, 0, 1350); sea.addColorStop(0, '#2a8fc4'); sea.addColorStop(1, '#0f4f80');
+        g.fillStyle = sea; g.fillRect(0, 900, 1080, 450);
+        g.fillStyle = 'rgba(255,250,225,.9)'; g.beginPath(); g.arc(150, 150, 70, 0, 7); g.fill();
+        g.fillStyle = 'rgba(255,255,255,.9)';
+        [[760, 170, 60], [820, 150, 75], [890, 175, 55], [260, 330, 40], [310, 315, 52]].forEach(function (k) { g.beginPath(); g.arc(k[0], k[1], k[2], 0, 7); g.fill(); });
+        g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 6;
+        for (var i = 0; i < 9; i++) { g.beginPath(); g.moveTo(80 + i * 120, 960 + (i % 3) * 60); g.quadraticCurveTo(110 + i * 120, 945 + (i % 3) * 60, 140 + i * 120, 960 + (i % 3) * 60); g.stroke(); }
+        function txt(s, x, y, size, col, stroke) {
+          g.font = '800 ' + size + 'px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+          g.textAlign = 'center'; g.lineJoin = 'round';
+          if (stroke) { g.strokeStyle = '#0f1424'; g.lineWidth = stroke; g.strokeText(s, x, y); }
+          g.fillStyle = col; g.fillText(s, x, y);
+        }
+        return new Promise(function (ok) {
+          var icon = new Image();
+          icon.onload = icon.onerror = function () {
+            g.save(); g.beginPath(); g.roundRect ? g.roundRect(390, 70, 300, 300, 60) : g.rect(390, 70, 300, 300); g.clip();
+            try { g.drawImage(icon, 390, 70, 300, 300); } catch (e) {}
+            g.restore();
+            txt('SEAGULL STRIKE', 540, 470, 96, '#ffd166', 18);
+            txt('STAGE 1  ·  THE PROM', 540, 530, 36, '#ffffff', 8);
+            // the score panel
+            g.fillStyle = 'rgba(11,26,43,.78)';
+            if (g.roundRect) { g.beginPath(); g.roundRect(90, 580, 900, 520, 48); g.fill(); } else g.fillRect(90, 580, 900, 520);
+            txt(r.done ? 'PROM SECURED' : 'GULL DOWN', 540, 660, 54, r.done ? '#ffd166' : '#ff6b5e');
+            txt(fmt(r.score), 540, 800, 150, '#ffffff');
+            txt('POINTS' + (r.best ? '  ·  NEW BEST!' : ''), 540, 850, 32, '#9fd3f0');
+            var m = MEDAL[r.medal];
+            var sy = 960;
+            if (m) {
+              g.fillStyle = m[0]; g.beginPath(); g.arc(200, 960, 62, 0, 7); g.fill();
+              g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.arc(200, 960, 44, 0, 7); g.fill();
+              g.strokeStyle = '#fff'; g.lineWidth = 7; g.beginPath(); g.moveTo(170, 966); g.lineTo(186, 952); g.lineTo(200, 964); g.lineTo(214, 952); g.lineTo(230, 966); g.stroke();
+              txt(m[1], 200, 1060, 28, m[0]);
+            }
+            g.textAlign = 'left';
+            [['HITS', r.hits + ' (' + r.heads + ' on the head)'], ['BEST COMBO', r.combo + ' in a row'], ['CHIPS EATEN', String(r.eaten)]].forEach(function (row, k) {
+              g.font = '700 30px system-ui, sans-serif'; g.fillStyle = '#9fd3f0'; g.fillText(row[0], m ? 320 : 170, sy - 30 + k * 52);
+              g.font = '800 34px system-ui, sans-serif'; g.fillStyle = '#ffffff'; g.fillText(row[1], m ? 560 : 470, sy - 30 + k * 52);
+            });
+            txt('Can you beat me?', 540, 1190, 52, '#ffffff', 10);
+            txt('thespectrumtechengine.com/seagull-strike', 540, 1250, 36, '#ffd166', 8);
+            txt('THE SPECTRUM TECH ENGINE', 540, 1310, 26, 'rgba(255,255,255,.85)', 6);
+            c.toBlob(ok, 'image/png');
+          };
+          icon.src = 'icon-512.png';
+        });
+      }
+      btn.addEventListener('click', function () {
+        if (!res) return;
+        var r = res;
+        var text = 'I scored ' + fmt(r.score) + ' on Seagull Strike! Can you beat me? ' + URL_;
+        card(r).then(function (blob) {
+          var file = new File([blob], 'seagull-strike-score.png', { type: 'image/png' });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            navigator.share({ files: [file], text: text }).catch(function () {});
+          } else {
+            var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; a.click();
+            if (navigator.clipboard) navigator.clipboard.writeText(text).catch(function () {});
+          }
+        });
+      });
+      window.__steCard = card;
+    })();
+    var canvas = document.getElementById('canvas');
+    var GW = 854, GH = 480;
+    function fit() {
+      var w = window.innerWidth, h = window.innerHeight;
+      var s = Math.min(w / GW, h / GH);
+      canvas.style.width = Math.floor(GW * s) + 'px';
+      canvas.style.height = Math.floor(GH * s) + 'px';
+    }
+    window.addEventListener('resize', fit);
+    fit();
+    window.addEventListener('keydown', function (e) { if ([32, 37, 38, 39, 40].indexOf(e.keyCode) > -1) e.preventDefault(); }, false);
+    window.onload = function () { window.focus(); };
+    window.addEventListener('pointerdown', function () { window.focus(); });
+
+    // full screen button for phone browsers (not needed when installed)
+    var standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    var touchy = window.matchMedia('(pointer: coarse)').matches;
+    var full = document.getElementById('full');
+    if (touchy && !standalone && document.documentElement.requestFullscreen) full.style.display = 'block';
+    full.addEventListener('click', function () {
+      document.documentElement.requestFullscreen().then(function () {
+        full.style.display = 'none';
+        if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(function () {});
+      }).catch(function () {});
+    });
+    document.addEventListener('fullscreenchange', function () { if (!document.fullscreenElement && touchy && !standalone) full.style.display = 'block'; });
+
+    var bar = document.querySelector('#bar i'), msg = document.getElementById('msg');
+    function ready() {
+      // the game's first frame only comes after it has finished making its sounds
+      msg.textContent = 'Warming up the wings...';
+      bar.style.width = '100%';
+      requestAnimationFrame(function () { requestAnimationFrame(function () {
+        document.getElementById('load').style.display = 'none';
+        canvas.style.visibility = 'visible';
+        fit();
+      }); });
+    }
+    var Module = {
+      arguments: ['./game.love'],
+      INITIAL_MEMORY: 67108864,
+      print: function (t) { console.log(t); },
+      printErr: console.error.bind(console),
+      canvas: canvas,
+      setStatus: function (text) {
+        if (!text && Module.remainingDependencies === 0) ready();
+      },
+      totalDependencies: 0,
+      remainingDependencies: 0,
+      monitorRunDependencies: function (left) {
+        this.remainingDependencies = left;
+        this.totalDependencies = Math.max(this.totalDependencies, left);
+        var done = this.totalDependencies ? (this.totalDependencies - left) / this.totalDependencies : 0;
+        bar.style.width = Math.round(done * 90) + '%';
+        if (!left) ready();
+      }
+    };
+    canvas.addEventListener('webglcontextlost', function (e) { e.preventDefault(); msg.textContent = 'The screen was lost. Please reload the page.'; }, false);
+    window.onerror = function () { msg.textContent = 'Something went wrong. Please reload the page.'; };
+    if ('serviceWorker' in navigator) window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+  </script>
+  <script src="game.js"></script>
+  <script async src="love.js" onload="Love(Module)"></script>
+</body>
+</html>

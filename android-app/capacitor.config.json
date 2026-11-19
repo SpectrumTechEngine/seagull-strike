@@ -1,0 +1,10 @@
+{
+  "appId": "com.thespectrumtechengine.seagullstrike",
+  "appName": "Seagull Strike",
+  "webDir": "www",
+  "backgroundColor": "#0b1a2b",
+  "server": {
+    "url": "https://thespectrumtechengine.com/seagull-strike/",
+    "errorPath": "index.html"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "version": 4,
+  "name": "seagullstrike.zip",
+  "items": [
+    "Seagull Strike.sh",
+    "seagullstrike"
+  ],
+  "items_opt": [],
+  "attr": {
+    "title": "Seagull Strike",
+    "porter": [
+      "The Spectrum Tech Engine"
+    ],
+    "desc": "You are a seagull over the prom at Ballyspray. Eat chips. Drop on people. Taken extremely seriously.",
+    "desc_md": null,
+    "inst": "Ready to run",
+    "inst_md": null,
+    "genres": [
+      "action"
+    ],
+    "image": null,
+    "rtr": true,
+    "exp": false,
+    "runtime": [],
+    "store": [],
+    "availability": "full",
+    "reqs": [],
+    "arch": [],
+    "min_glibc": ""
+  }
+}
