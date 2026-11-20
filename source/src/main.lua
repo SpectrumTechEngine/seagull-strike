@@ -162,6 +162,11 @@ local function finish()
   Snd.musicPlay('musicMenu')
 end
 
+-- the results screen's two buttons: big main one (next stage / fly again / menu) and MENU
+local function resultButtons()
+  return { { a = 'A', x = VW / 2 - 225, y = 382, w = 250, h = 40 }, { a = 'B', x = VW / 2 + 45, y = 382, w = 180, h = 40 } }
+end
+
 ---------------------------------------------------------------- buttons
 local KEYMAP = { up = 'up', down = 'down', left = 'left', right = 'right', w = 'up', s = 'down', a = 'left', d = 'right',
   x = 'A', z = 'B', c = 'X', v = 'Y', q = 'L1', e = 'R1', r = 'L2', t = 'R2', ['return'] = 'start', kpenter = 'start', escape = 'select', space = 'A', backspace = 'select' }
@@ -318,7 +323,9 @@ local function tapUI(x, y)
       if y >= yy - 4 and y <= yy + 40 and math.abs(x - VW / 2) < 150 then pauseSel = i; action('A'); return end
     end
   elseif state == 'results' then
-    if x < VW / 2 then action('A') else action('B') end
+    for _, b in ipairs(resultButtons()) do
+      if x >= b.x - 8 and x <= b.x + b.w + 8 and y >= b.y - 10 and y <= b.y + b.h + 10 then action(b.a); return end
+    end
   end
 end
 
@@ -493,8 +500,17 @@ local function drawResults()
     nextLine = (r.unlockedNew and 'UNLOCKED: ' or 'Next: ') .. 'Stage ' .. (r.level + 1) .. ', ' .. St.LEVELS[r.level + 1].name; aWord = 'next stage'
   elseif r.done then nextLine = 'Every stage done. Sergeant Gannet salutes you.'; aWord = 'menu' end
   U.text(nextLine, 13, VW / 2, y + (WEB and 270 or 300), r.unlockedNew and { 1, 0.84, 0.25 } or { 0.85, 0.9, 1 }, 'center')
-  if timer > .8 and clock % 1.2 < 0.8 then
-    U.text(TOUCH and ('Tap left: ' .. aWord .. '        Tap right: menu') or ('A  -  ' .. aWord .. '        B  -  menu'), 13, VW / 2, y + h - 34, { 1, 1, 1 }, 'center')
+  -- two real buttons (the web's Share button sits above them)
+  local ready = timer > .8
+  local pulse = ready and (0.85 + 0.15 * math.sin(clock * 5)) or 0.4
+  for _, b in ipairs(resultButtons()) do
+    local main = b.a == 'A'
+    lg.setColor(main and { 0.16 * pulse + 0.05, 0.55 * pulse, 0.9 * pulse } or { 0.25, 0.3, 0.38, ready and 1 or 0.5 })
+    lg.rectangle('fill', b.x, b.y, b.w, b.h, 12, 12)
+    lg.setColor(1, 1, 1, ready and 0.5 or 0.2); lg.setLineWidth(2); lg.rectangle('line', b.x, b.y, b.w, b.h, 12, 12)
+    local label = main and aWord:upper() or 'MENU'
+    if not TOUCH then label = (main and 'A   ' or 'B   ') .. label end
+    U.text(label, 15, b.x + b.w / 2, b.y + 9, { 1, 1, 1, ready and 1 or 0.5 }, 'center')
   end
 end
 

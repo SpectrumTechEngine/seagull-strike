@@ -15,14 +15,15 @@ local HZ0 = 170          -- the horizon on screen
 -- Each stage gets harder: faster flying, hungrier gull, more throwers who throw sooner, faster and straighter.
 -- len: metres to fly. throwers: how many. throwT: seconds a thrown thing takes to reach you (lower = harder).
 -- err: how far off their aim is (metres). shots: throws each. cd: seconds between their throws.
+-- kidMax / kidShots / kidErr: water-pistol kids per stage, squirts each, how far off they aim (no setting = no limit, 3, dead on).
 St.LEVELS = {
-  { name = 'THE PROM', theme = 'prom', len = 1450, speed = 13, hunger = 1.45, throwers = 1, throwT = 1.3, err = 1.5, shots = 2, cd = 2.6,
-    kidsFrom = 430, paperFrom = 330, umbFrom = 200, thing = 'shoe', food = { 'chips', 'chips', 'cone', 'sandwich' },
+  { name = 'THE PROM', theme = 'prom', len = 1450, speed = 13, hunger = 1.25, kidMax = 2, kidShots = 1, kidErr = 1.3, throwers = 1, throwT = 1.3, err = 1.5, shots = 2, cd = 2.6,
+    kidsFrom = 800, paperFrom = 700, umbFrom = 200, thing = 'shoe', food = { 'chips', 'chips', 'cone', 'sandwich' },
     shops = { 'chips', 'ices', 'cafe', 'chips' }, pal = { 'f2b5c4', 'f6d97a', 'a9d6e5', 'f4f1e8', 'b8e0c2', 'f3a76f', 'c9b8e8', 'fbfaf6', '9fc5e8', 'ffd6a5' },
     pool = { 'walker', 'walker', 'cone', 'jogger', 'dog', 'pram', 'selfie', 'chips', 'walker' }, beach = true,
     done = 'PROM SECURED', medals = { 3500, 7000, 12000 },
     lines = { start = 'Ballyspray, oh-seven-hundred. The prom is busy. Make them remember us.', ['end'] = 'Prom secured. Back to the lighthouse, gull.' } },
-  { name = 'THE HARBOUR', theme = 'harbour', len = 1500, speed = 13.5, hunger = 1.55, throwers = 3, throwT = 1.15, err = 1.15, shots = 2, cd = 2.3,
+  { name = 'THE HARBOUR', theme = 'harbour', len = 1500, speed = 13.5, hunger = 1.5, kidMax = 5, kidShots = 2, kidErr = 0.8, throwers = 3, throwT = 1.15, err = 1.15, shots = 2, cd = 2.3,
     kidsFrom = 380, paperFrom = 220, umbFrom = 160, thing = 'fish', food = { 'fish', 'fish', 'chips', 'sandwich' },
     shops = { 'fish', 'chips', 'cafe', 'fish' }, pal = { '5c7fa3', 'd7dee5', 'e9c46a', 'f4f1e8', 'b56576', '8ecae6', 'a3b18a', 'f2b5c4' },
     pool = { 'fisher', 'fisher', 'walker', 'map', 'chips', 'phone', 'dog', 'walker' }, boats = true,
@@ -30,7 +31,7 @@ St.LEVELS = {
     done = 'HARBOUR TAKEN', medals = { 4500, 9000, 15000 },
     lines = { start = 'The harbour. Fishermen have long memories, son. Mind the mackerel.', vip = 'Harbour master on the quay. He has had this coming.',
       ['end'] = 'Harbour taken. The trawlermen will talk about this for years.' } },
-  { name = 'THE AMUSEMENTS', theme = 'fair', len = 1550, speed = 14, hunger = 1.65, throwers = 5, throwT = 1.05, err = 0.95, shots = 3, cd = 2.0,
+  { name = 'THE AMUSEMENTS', theme = 'fair', len = 1550, speed = 14, hunger = 1.65, kidMax = 9, kidShots = 2, kidErr = 0.5, throwers = 5, throwT = 1.05, err = 0.95, shots = 3, cd = 2.0,
     kidsFrom = 120, paperFrom = 260, umbFrom = 160, thing = 'ball', food = { 'candyfloss', 'chips', 'cone', 'burger' },
     shops = { 'arcade', 'bingo', 'ices', 'arcade', 'chips' }, pal = { 'ffafcc', 'bde0fe', 'fdffb6', 'caffbf', 'ffc6ff', 'ffd6a5' },
     pool = { 'walker', 'cone', 'candy', 'candy', 'selfie', 'pram', 'jogger', 'walker', 'chips' }, beach = true,
@@ -38,7 +39,7 @@ St.LEVELS = {
     done = 'FUNFAIR FLATTENED', medals = { 4500, 8500, 14000 },
     lines = { start = 'The amusements. Children, candyfloss and chaos. Stay sharp.', vip = 'A clown. Nobody will miss him.',
       ['end'] = 'The funfair is ours. Go easy on the candyfloss.' } },
-  { name = 'MATCH DAY', theme = 'match', len = 1600, speed = 14.5, hunger = 1.75, throwers = 7, throwT = 0.95, err = 0.75, shots = 3, cd = 1.8,
+  { name = 'MATCH DAY', theme = 'match', len = 1600, speed = 14.5, hunger = 1.75, kidMax = 8, kidShots = 3, kidErr = 0.35, throwers = 7, throwT = 0.95, err = 0.75, shots = 3, cd = 1.8,
     kidsFrom = 250, paperFrom = 160, umbFrom = 99999, thing = 'hat', food = { 'burger', 'chips', 'burger', 'pizza' },
     shops = { 'pub', 'chips', 'pub', 'kebab' }, pal = { '2d6a4f', 'f4f1e8', 'c1121f', 'e9c46a', 'a9d6e5', 'f2b5c4' },
     pool = { 'fan', 'fan', 'fan', 'chips', 'walker', 'fan', 'phone' }, crowd = true,
@@ -192,8 +193,9 @@ local function build(g)
     for _, t in ipairs(L.pool) do pool[#pool + 1] = t end
     if z > L.umbFrom then pool[#pool + 1] = 'umb'; pool[#pool + 1] = 'phone' end
     if z > L.paperFrom then pool[#pool + 1] = 'paper' end
-    if z > L.kidsFrom then pool[#pool + 1] = 'kid'; if z > L.kidsFrom + 400 then pool[#pool + 1] = 'kid' end end
+    if z > L.kidsFrom and (L.kidMax or 99) > (g.kids or 0) then pool[#pool + 1] = 'kid'; if z > L.kidsFrom + 400 then pool[#pool + 1] = 'kid' end end
     local typ = pick(r, pool)
+    if typ == 'kid' then g.kids = (g.kids or 0) + 1 end
     local x = -7.0 + r:random() * 6.6
     if typ ~= 'kid' and typ ~= 'paper' and r:random() < 0.12 then x = 11.6 + r:random() * 1.8 end
     newPerson(g, typ, x, z)
@@ -576,9 +578,10 @@ function St.update(g, dt, inp)
         end
         if p.typ == 'kid' and p.state == 'walk' and d > 7 and d < 26 and abs(p.x - cam.x) < 7 then
           p.fireCD = (p.fireCD or 0.5) - dt
-          if p.fireCD <= 0 and (p.shots or 0) < 3 then
+          if p.fireCD <= 0 and (p.shots or 0) < (g.L.kidShots or 3) then
             local T = 0.85
-            local tx, ty, tz = cam.x, cam.y, cam.z + g.speed * T
+            local e = g.L.kidErr or 0
+            local tx, ty, tz = cam.x + (g.rng:random() * 2 - 1) * e, cam.y + (g.rng:random() * 2 - 1) * e * 0.6, cam.z + g.speed * T
             g.jets[#g.jets + 1] = { kind = 'jet', x = p.x, y = 1.0, z = p.z, vx = (tx - p.x) / T, vy = (ty - 1.0) / T, vz = (tz - p.z) / T, t = 0 }
             p.fireCD = 1.5; p.shots = (p.shots or 0) + 1
             g.sfx('squirt', 1.3, 0.6)
